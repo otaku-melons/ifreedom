@@ -8,12 +8,30 @@
 		"use_id_as_filename": false,
 		"sizing_images": false,
 		"retries": 1,
-		"delay": 1
+		"delay": 10
+	},
+	"ranobe": {
+		"images_directory": ""
 	},
 	"filters": {
-		"text_regexs": [],
-		"text_strings": [],
-		"image_md5": [],
+		"text_regexs": [
+			"(?<!https:\/\/)ifreedom(\\.su)?"
+		],
+		"text_strings": [
+			"Свобоный | Мир | Ранобэ",
+			"свободный_мир_ранобэ",
+			"айfree_dom",
+			"айфри-дом.су",
+			"а й ф р и д о м",
+			"Айф_ридом_су",
+			"I_free-dom",
+			"I_фри_dom-cy",
+			"ай_free_dom-cy",
+			"ай_free_dom"
+		],
+		"image_md5": [
+			"3b9bed6c2e22d03d9cc34c3f45f5033d"
+		],
 		"image_min_height": null,
 		"image_min_width": null,
 		"image_max_height": null,
