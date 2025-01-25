@@ -3,6 +3,7 @@ from Source.Core.Base.RanobeParser import RanobeParser
 from Source.Core.Exceptions import TitleNotFound
 
 from dublib.WebRequestor import Protocols, WebConfig, WebLibs, WebRequestor
+
 from recognizers_number import recognize_number, Culture
 from curl_cffi import CurlHttpVersion
 from datetime import datetime
@@ -44,7 +45,7 @@ class Parser(RanobeParser):
 		WebRequestorObject = WebRequestor(Config)
 
 		if self._Settings.proxy.enable: WebRequestorObject.add_proxy(
-			Protocols.HTTPS,
+			Protocols.HTTP,
 			host = self._Settings.proxy.host,
 			port = self._Settings.proxy.port,
 			login = self._Settings.proxy.login,
@@ -122,7 +123,6 @@ class Parser(RanobeParser):
 			Response = self._Requestor.get(f"https://{SITE}/vse-knigi/?sort=По+дате+обновления&bpage={Page}")
 			
 			if Response.status_code == 200:
-				self._PrintCollectingStatus(Page)
 				Soup = BeautifulSoup(Response.text, "html.parser")
 				Books = Soup.find_all("div", {"class": "flexmobrnew"})
 
@@ -143,11 +143,10 @@ class Parser(RanobeParser):
 						break
 					
 				if not len(Books) or pages and Page == pages: IsCollected = True
-				if IsCollected: self._SystemObjects.logger.titles_collected(len(Slugs))
 				else: sleep(self._Settings.common.delay)
 				Page += 1
 
-			else: self._SystemObjects.logger.request_error(Response, "Unable to request catalog.")
+			else: self._Portals.request_error(Response, "Unable to request catalog.")
 
 		return Slugs
 	
@@ -177,11 +176,10 @@ class Parser(RanobeParser):
 					Slugs.append(Slug)
 
 				if not len(Books) or pages and Page == pages: IsCollected = True
-				if IsCollected: self._SystemObjects.logger.titles_collected(len(Slugs))
 				Page += 1
 				sleep(self._Settings.common.delay)
 
-			else: self._SystemObjects.logger.request_error(Response, "Unable to request catalog.")
+			else: self._Portals.request_error(Response, "Unable to request catalog.")
 
 		return Slugs
 
@@ -252,6 +250,7 @@ class Parser(RanobeParser):
 		ChaptersBlocks = soup.find_all("div", {"class": "li-ranobe"})
 	
 		for Block in ChaptersBlocks:
+			Block: BeautifulSoup
 			ChapterID = None
 			ChapterName = Block.find("a").get_text().strip()
 			ChapterFullname = ChapterName
@@ -260,7 +259,9 @@ class Parser(RanobeParser):
 			ChapterSlug = Block.find("a")["href"].rstrip("/").split("/")[-1]
 
 			try: ChapterID = int(Block.find("input")["value"])
-			except: ChapterSlug = None
+			except: pass
+
+			if ChapterSlug == "podpiska": ChapterSlug = None
 
 			Results = recognize_number(ChapterName, Culture.English)
 			Index = 0
@@ -351,7 +352,7 @@ class Parser(RanobeParser):
 		StarsLabel = RatingArea.find("label")
 		StarsLabelOnclick = StarsLabel["onclick"]
 		ID = StarsLabelOnclick.replace("starSend('zvezdy_proizvedenie', 5, ", "").replace(", 0);", "")
-		ID = int(ID)
+		ID = int(ID.split(",")[0])
 
 		return ID
 
@@ -391,10 +392,20 @@ class Parser(RanobeParser):
 		"""
 
 		Paragraphs = list()
-		Response = self._Requestor.get(f"https://{SITE}/{self._Title.slug}/{chapter.slug}/")
+		Headers = None
+
+		if self._Settings.custom["cookie"] and chapter.is_paid:
+			Headers = {"Cookie": self._Settings.custom["cookie"]}
+
+		elif chapter.is_paid:
+			self._Portals.chapter_skipped(self._Title, chapter)
+			return Paragraphs
+
+		Response = self._Requestor.get(f"https://{SITE}/{self._Title.slug}/{chapter.slug}/", headers = Headers)
 
 		if Response.status_code == 200:
 			Soup = BeautifulSoup(Response.text, "lxml")
+			if not chapter.id: chapter.set_id(int(Soup.find("input", {"name": "pageid"})["value"]))
 
 			if Soup.find("form", {"aria-label": "Контактная форма"}):
 				self._Portals.error("Captcha detected.")
@@ -484,7 +495,8 @@ class Parser(RanobeParser):
 	def parse(self):
 		"""Получает основные данные тайтла."""
 
-		Response = self._Requestor.get(f"https://{SITE}/ranobe/{self._Title.slug}/")
+		Headers = {"Cookie": self._Settings.custom["cookie"]} if self._Settings.custom["cookie"] else None
+		Response = self._Requestor.get(f"https://{SITE}/ranobe/{self._Title.slug}/", headers = Headers)
 
 		if Response.status_code == 200:
 			Soup = BeautifulSoup(Response.text, "html.parser")
@@ -507,4 +519,4 @@ class Parser(RanobeParser):
 			self.__GetBranches(Soup)
 
 		elif Response.status_code == 404: raise TitleNotFound(self._Title)
-		else: self._SystemObjects.logger.request_error(Response, "Unable to request title data.")
+		else: self._Portals.request_error(Response, "Unable to request title data.")
