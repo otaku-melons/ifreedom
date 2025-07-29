@@ -1,22 +1,17 @@
 {
 	"common": {
 		"archives_directory": "",
-		"covers_directory": "",
+		"images_directory": "",
 		"titles_directory": "",
 		"bad_image_stub": "",
 		"pretty": false,
 		"use_id_as_filename": false,
 		"sizing_images": false,
 		"retries": 1,
-		"delay": 10
-	},
-	"ranobe": {
-		"images_directory": ""
+		"delay": 1
 	},
 	"filters": {
-		"text_regexs": [
-			"(?<!https:\/\/)ifreedom(\\.su)?"
-		],
+		"text_regexs": [],
 		"text_strings": [
 			"Свобоный | Мир | Ранобэ",
 			"свободный_мир_ранобэ",
@@ -37,13 +32,7 @@
 		"image_max_height": null,
 		"image_max_width": null
 	},
-	"proxy": {
-		"enable": false,
-		"host": "",
-		"port": "",
-		"login": "",
-		"password": ""
-	},
+	"proxies": [],
 	"custom": {
 		"cookie": ""
 	}

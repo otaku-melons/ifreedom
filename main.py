@@ -1,58 +1,18 @@
-from Source.Core.Formats.Ranobe import Branch, Chapter, ChaptersTypes, Ranobe, Statuses
-from Source.Core.Base.RanobeParser import RanobeParser
+from Source.Core.Base.Formats.Ranobe import Branch, Chapter, ChaptersTypes
+from Source.Core.Base.Parsers.RanobeParser import RanobeParser
+from Source.Core.Base.Formats.BaseFormat import Statuses
 from Source.Core.Exceptions import TitleNotFound
 
-from dublib.WebRequestor import Protocols, WebConfig, WebLibs, WebRequestor
+from datetime import datetime
+from time import sleep
+from typing import Any
 
 from recognizers_number import recognize_number, Culture
-from curl_cffi import CurlHttpVersion
-from datetime import datetime
 from bs4 import BeautifulSoup
-from time import sleep
-
 import dateparser
-
-#==========================================================================================#
-# >>>>> ОПРЕДЕЛЕНИЯ <<<<< #
-#==========================================================================================#
-
-VERSION = "1.0.0"
-NAME = "ifreedom"
-SITE = "ifreedom.su"
-TYPE = Ranobe
-
-#==========================================================================================#
-# >>>>> ОСНОВНОЙ КЛАСС <<<<< #
-#==========================================================================================#
 
 class Parser(RanobeParser):
 	"""Парсер."""
-
-	#==========================================================================================#
-	# >>>>> ПЕРЕОПРЕДЕЛЯЕМЫЕ МЕТОДЫ <<<<< #
-	#==========================================================================================#
-
-	def _InitializeRequestor(self) -> WebRequestor:
-		"""Инициализирует модуль WEB-запросов."""
-
-		Config = WebConfig()
-		Config.select_lib(WebLibs.curl_cffi)
-		Config.curl_cffi.select_fingerprint("chrome123")
-		Config.curl_cffi.select_http_version(CurlHttpVersion.V2_0)
-		Config.generate_user_agent()
-		Config.set_retries_count(self._Settings.common.retries)
-		Config.add_header("Referer", f"https://{SITE}/")
-		WebRequestorObject = WebRequestor(Config)
-
-		if self._Settings.proxy.enable: WebRequestorObject.add_proxy(
-			Protocols.HTTP,
-			host = self._Settings.proxy.host,
-			port = self._Settings.proxy.port,
-			login = self._Settings.proxy.login,
-			password = self._Settings.proxy.password
-		)
-
-		return WebRequestorObject
 	
 	#==========================================================================================#
 	# >>>>> ПРИВАТНЫЕ МЕТОДЫ <<<<< #
@@ -120,7 +80,7 @@ class Parser(RanobeParser):
 		Now = datetime.now()
 
 		while not IsCollected:
-			Response = self._Requestor.get(f"https://{SITE}/vse-knigi/?sort=По+дате+обновления&bpage={Page}")
+			Response = self._Requestor.get(f"https://{self._Manifest.site}/vse-knigi/?sort=По+дате+обновления&bpage={Page}")
 			
 			if Response.status_code == 200:
 				Soup = BeautifulSoup(Response.text, "html.parser")
@@ -162,7 +122,7 @@ class Parser(RanobeParser):
 		Page = 1
 
 		while not IsCollected:
-			Response = self._Requestor.get(f"https://{SITE}/vse-knigi/?{filters}&bpage={Page}")
+			Response = self._Requestor.get(f"https://{self._Manifest.site}/vse-knigi/?{filters}&bpage={Page}")
 			
 			if Response.status_code == 200:
 				self._PrintCollectingStatus(Page)
@@ -218,7 +178,7 @@ class Parser(RanobeParser):
 
 		return AnotherNames
 
-	def __GetBookMetadata(self, soup: BeautifulSoup, key: str) -> any:
+	def __GetBookMetadata(self, soup: BeautifulSoup, key: str) -> Any:
 		"""
 		Возвращает значение определённого поля метаданных.
 			soup – спаршенный код страницы;\n
@@ -401,7 +361,7 @@ class Parser(RanobeParser):
 			self._Portals.chapter_skipped(self._Title, chapter)
 			return Paragraphs
 
-		Response = self._Requestor.get(f"https://{SITE}/{self._Title.slug}/{chapter.slug}/", headers = Headers)
+		Response = self._Requestor.get(f"https://{self._Manifest.site}/{self._Title.slug}/{chapter.slug}/", headers = Headers)
 
 		if Response.status_code == 200:
 			Soup = BeautifulSoup(Response.text, "lxml")
@@ -474,6 +434,7 @@ class Parser(RanobeParser):
 			chapter – данные главы.
 		"""
 
+		
 		if chapter.slug:
 			Paragraphs = self.__GetParagraphs(chapter)
 			for Paragraph in Paragraphs: chapter.add_paragraph(Paragraph)
@@ -496,12 +457,12 @@ class Parser(RanobeParser):
 		"""Получает основные данные тайтла."""
 
 		Headers = {"Cookie": self._Settings.custom["cookie"]} if self._Settings.custom["cookie"] else None
-		Response = self._Requestor.get(f"https://{SITE}/ranobe/{self._Title.slug}/", headers = Headers)
+		Response = self._Requestor.get(f"https://{self._Manifest.site}/ranobe/{self._Title.slug}/", headers = Headers)
 
 		if Response.status_code == 200:
 			Soup = BeautifulSoup(Response.text, "html.parser")
 			
-			self._Title.set_site(SITE)
+			self._Title.set_site(self._Manifest.site)
 			self._Title.set_id(self.__GetID(Soup))
 			self._Title.set_content_language("rus")
 			self._Title.set_localized_name(self.__GetName(Soup))
