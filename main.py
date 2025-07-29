@@ -288,6 +288,11 @@ class Parser(RanobeParser):
 			Descriprion = soup.find("div", {"class": "descr-ranobe"})
 			Text = Descriprion.get_text().strip()
 
+		if Text and Text.startswith("document.querySelector('.descr-ranobe').innerHTML"):
+			Fragments = Text.split("<br>")
+			Text = "\n".join(Fragments[1:])
+			Text = Text[:-2]
+			
 		return Text
 
 	def __GetGenres(self, soup: BeautifulSoup) -> list[str]:
