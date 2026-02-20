@@ -1,4 +1,5 @@
-from Source.Core.Base.Formats.Ranobe import Branch, Chapter, ChaptersTypes
+from Source.Core.Base.Formats.Ranobe.Legacy import LegacyChapter as Chapter
+from Source.Core.Base.Formats.Ranobe import Branch, ChaptersTypes
 from Source.Core.Base.Parsers.RanobeParser import RanobeParser
 from Source.Core.Base.Formats.BaseFormat import Statuses
 from Source.Core.Exceptions import TitleNotFound
@@ -363,7 +364,7 @@ class Parser(RanobeParser):
 			Headers = {"Cookie": self._Settings.custom["cookie"]}
 
 		elif chapter.is_paid:
-			self._Portals.chapter_skipped(self._Title, chapter)
+			self._Portals.chapter_skipped(chapter)
 			return Paragraphs
 
 		Response = self._Requestor.get(f"https://{self._Manifest.site}/{self._Title.slug}/{chapter.slug}/", headers = Headers)
@@ -377,7 +378,7 @@ class Parser(RanobeParser):
 
 			elif Soup.find("div", {"class": "single-notice"}):
 				chapter.set_is_paid(True)
-				self._Portals.chapter_skipped(self._Title, chapter)
+				self._Portals.chapter_skipped(chapter)
 
 			else:
 				Content = Soup.find("div", {"class": "entry-content"})
@@ -385,7 +386,7 @@ class Parser(RanobeParser):
 				for Block in ParagraphsBlocks: 
 					Paragraphs.append(str(Block))
 
-		elif Response.status_code == 404: self._Portals.chapter_not_found(self._Title, chapter)
+		elif Response.status_code == 404: self._Portals.chapter_not_found(chapter)
 		else: self._Portals.request_error(Response, "Unable to request chapter.", exception = False)
 
 		return Paragraphs
@@ -435,23 +436,31 @@ class Parser(RanobeParser):
 	def amend(self, branch: Branch, chapter: Chapter):
 		"""
 		Дополняет главу дайными о слайдах.
-			branch – данные ветви;\n
-			chapter – данные главы.
-		"""
 
+		:param branch: Данные ветви.
+		:type branch: Branch
+		:param chapter: Данные главы.
+		:type chapter: Chapter
+		"""
 		
 		if chapter.slug:
 			Paragraphs = self.__GetParagraphs(chapter)
 			for Paragraph in Paragraphs: chapter.add_paragraph(Paragraph)
 
-		else: self._Portals.chapter_skipped(self._Title, chapter)
+		else: self._Portals.chapter_skipped(chapter)
 
 	def collect(self, period: int | None = None, filters: str | None = None, pages: int | None = None) -> list[str]:
 		"""
-		Собирает список тайтлов по заданным параметрам.
-			period – количество часов до текущего момента, составляющее период получения данных;\n
-			filters – строка, описывающая фильтрацию (подробнее в README.md);\n
-			pages – количество запрашиваемых страниц каталога.
+		Собирает список алиасов тайтлов по заданным параметрам.
+
+		:param period: Количество часов до текущего момента, составляющее период получения данных.
+		:type period: int | None
+		:param filters: Строка, описывающая фильтрацию (подробнее в README.md парсера).
+		:type filters: str | None
+		:param pages: Количество запрашиваемых страниц каталога.
+		:type pages: int | None
+		:return: Набор собранных алиасов.
+		:rtype: tuple[str]
 		"""
 
 		Slugs: list[str] = self.__Collect(filters, pages) if not period else self.__CollectUpdates(period, pages)
