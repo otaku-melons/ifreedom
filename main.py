@@ -1,10 +1,14 @@
 from Source.Core.Base.SourceOperator import BaseSourceOperator
 
+from typing import TYPE_CHECKING
 from datetime import datetime
 from time import sleep
 
 from bs4 import BeautifulSoup
 import dateparser
+
+if TYPE_CHECKING:
+	from dublib.WebRequestor import WebRequestor
 
 class SourceOperator(BaseSourceOperator):
 	"""Оператор источника."""
@@ -103,6 +107,18 @@ class SourceOperator(BaseSourceOperator):
 
 		return tuple(Slugs)
 	
+	#==========================================================================================#
+	# >>>>> ПЕРЕОПРЕДЕЛЯЕМЫЕ МЕТОДЫ <<<<< #
+	#==========================================================================================#
+
+	def _InitializeRequestor(self) -> "WebRequestor":
+		"""Инициализирует модуль WEB-запросов."""
+
+		WebRequestorObject = super()._InitializeRequestor()
+		if self._Settings.custom["cookie"]: WebRequestorObject.config.add_header("Cookie", self._Settings.custom["cookie"])
+
+		return WebRequestorObject
+
 	#==========================================================================================#
 	# >>>>> ПУБЛИЧНЫЕ МЕТОДЫ <<<<< #
 	#==========================================================================================#

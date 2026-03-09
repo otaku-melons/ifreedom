@@ -1,2 +1,0 @@
-recognizers-text-number
-emoji==1.7.0
