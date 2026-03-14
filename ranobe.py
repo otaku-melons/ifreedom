@@ -1,17 +1,17 @@
-from Source.Core.Base.Formats.Ranobe.ChapterHeaderParser import ChapterHeaderParser
-from Source.Core.Base.Formats.Ranobe.Elements import Footnote, Image, Paragraph
+from Source.Core.Base.Parsers.Components.ChapterHeaderParser.Ranobe import ChapterHeaderParser
+from Source.Core.Base.Formats.Ranobe.Elements import Image, Paragraph
 from Source.Core.Base.Formats.BaseFormat import Cover, Statuses
 from Source.Core.Base.Parsers.RanobeParser import RanobeParser
 from Source.Core.Base.Formats.Ranobe import Branch, Chapter
+from Source.Core.Base.Parsers.Components import Functions
 from Source.Core.Exceptions import TitleNotFound
 
 from enum import Enum
-import re
 
 from bs4 import BeautifulSoup, Tag
 
 #==========================================================================================#
-# >>>>> ВСПОМОГАТЕЛЬНЫЕ СТРУКТУРЫ ДАННЫХ <<<<< #
+# >>>>> ПЕРЕЧИСЛЕНИЯ <<<<< #
 #==========================================================================================#
 
 class MetadataSVG(Enum):
@@ -32,7 +32,7 @@ class Parser(RanobeParser):
 	# >>>>> ПРИВАТНЫЕ МЕТОДЫ <<<<< #
 	#==========================================================================================#
 	
-	def __GetMetadataмValue(self, soup: BeautifulSoup, key: MetadataSVG) -> str | None:
+	def __GetMetadataValue(self, soup: BeautifulSoup, key: MetadataSVG) -> str | None:
 		"""
 		Возвращает значение поля метаданных книги. Определение идёт по SVG-иконке.
 
@@ -50,44 +50,6 @@ class Parser(RanobeParser):
 		for Block in Blocks:
 			ClassSVG = Block.find("svg")["class"]
 			if ClassSVG[-1] == f"icon-tabler-{key.value}": return Block.get_text().strip()
-
-	def __SplitParagraphsByBreaks(self, soup: BeautifulSoup, paragraph: Tag) -> tuple[Tag]:
-		"""
-		Разбивает абзацы по вхождению тега `br`.
-
-		:param paragraph: Разбиваемый абзац.
-		:type paragraph: Tag
-		:param soup: Парсер страницы.
-		:type soup: BeautifulSoup
-		:return: Последовательность абзацев.
-		:rtype: tuple[Tag]
-		"""
-
-		if not paragraph.find("br"): return (paragraph,)
-
-		Text = paragraph.decode_contents()
-		Parts = tuple(Line.strip() for Line in re.split(r"<br\s*/?>", Text) if Line.strip())
-
-		return tuple(soup.new_tag("p", string = Part, attrs = paragraph.attrs.copy()) for Part in Parts)
-
-	def __UnwrapInnerTags(self, tag: Tag) -> Tag:
-		"""
-		Если передан тег абзаца, содержащий блок текста или изображение, разворачивает абзац.
-
-		:param tag: Обрабатываемый тег.
-		:type tag: Tag
-		:return: Обрабатываемый тег или вложенный тег блока текста или изображения.
-		:rtype: Tag
-		"""
-
-		if tag.name == "p":
-			for InnerTagName in ("blockquote", "img", "h3"):
-				InnerTag = tag.find(InnerTagName)
-				if InnerTag:
-					tag = InnerTag
-					break
-
-		return tag
 
 	#==========================================================================================#
 	# >>>>> ПРИВАТНЫЕ МЕТОДЫ СОЗДАНИЯ ЭЛЕМЕНТОВ ГЛАВ <<<<< #
@@ -153,7 +115,7 @@ class Parser(RanobeParser):
 		:type soup: BeautifulSoup
 		"""
 
-		Author = self.__GetMetadataмValue(soup, MetadataSVG.Author)
+		Author = self.__GetMetadataValue(soup, MetadataSVG.Author)
 		if not Author or Author == "Не указан": return
 		self._Title.add_author(Author)
 
@@ -265,7 +227,7 @@ class Parser(RanobeParser):
 		:type soup: BeautifulSoup
 		"""
 
-		OriginalLanguage = self.__GetMetadataмValue(soup, MetadataSVG.OriginalLanguage)
+		OriginalLanguage = self.__GetMetadataValue(soup, MetadataSVG.OriginalLanguage)
 		Languages = {
 			"Английский": "eng",
 			"Китайский": "zho",
@@ -284,7 +246,7 @@ class Parser(RanobeParser):
 		:type soup: BeautifulSoup
 		"""
 
-		Status = self.__GetMetadataмValue(soup, MetadataSVG.Status)
+		Status = self.__GetMetadataValue(soup, MetadataSVG.Status)
 		if not Status: return
 		StatusesDeterminations = {
 			"Перевод активен": Statuses.ongoing,
@@ -321,13 +283,13 @@ class Parser(RanobeParser):
 		for AdvBlock in Container.find_all("div", {"class": "pc-adv"}): AdvBlock.decompose()
 
 		for CurrentTag in Container.find_all(("p", "img"), recursive = False):
-			CurrentTag = self.__UnwrapInnerTags(CurrentTag)
+			if CurrentTag.name == "p": CurrentTag = Functions.UnwrapInnerTags(CurrentTag)
 			Element = None
 
 			match CurrentTag.name:
 
 				case "p":
-					for CurrentParagraph in self.__SplitParagraphsByBreaks(Soup, CurrentTag):
+					for CurrentParagraph in Functions.SplitParagraph(Soup, CurrentTag):
 						Element = self.__CreateParagraphElementFromTag(CurrentParagraph)
 
 						if Element:
